@@ -79,7 +79,7 @@
 
 
       subroutine get_ellipsoid_geom(a,b,c,rmax,ifc,norder,npatches, & 
-        npts,norders,ixyzs,iptype,srcvals,srcoefs)
+        npts,norders,ixyzs,iptype,srcvals,srccoefs)
 !
 !  This subroutine discretizes 
 !  an ellipsoid with half axis lengths (a,b,c).
@@ -176,12 +176,12 @@
         nthet0 = 1
         do ithet=1,nthet
           n0 = 0
-          umin = (ithet-1)*hthet
-          umax = (ithet)*hthet
+          umin = (ithet-1.0d0)*hthet
+          umax = (ithet+0.0d0)*hthet
 
           tuse = umin
-          if(abs(t0-pi/2).ge.abs(t1-pi/2)) tuse = umax
-          if((t0-pi/2)*(t1-pi/2).le.0) tuse = pi/2
+          if(abs(umin-pi/2).ge.abs(umax-pi/2)) tuse = umax
+          if((umin-pi/2)*(umax-pi/2).le.0) tuse = pi/2
 
 
           alpha = a*sin(tuse)
