@@ -31,12 +31,10 @@
       b = 2.3d0
       c = 1.3d0
 
-      rmax = 1.0d0
+      rmax = 1.0d0/2
       ifc = 0
       call get_ellipsoid_mem(a,b,c,rmax,ifc,npatches)
       call prinf('npatches=*',npatches,1)
-
-
 
       norder = 4 
       npols = (norder+1)*(norder+2)/2
@@ -86,8 +84,11 @@
       enddo
       ra = sqrt(ra)
 
+      call prin2('ra=*',ra,1)
 
-      ntarg = 10000
+
+
+      ntarg = 100
       allocate(targs(3,ntarg),rhs_ex(nd,ntarg),rhs_interp(nd,ntarg))
       do i=1,ntarg
         thet = hkrand(0)*pi
@@ -101,7 +102,7 @@
      1     rhs_ex(2,i))
       enddo
 
-      call ellipsoid_interp(a,b,c,rmax,ifc,ntarg,targs,npatches,
+      call ellipsoid_interp(nd,a,b,c,rmax,ifc,ntarg,targs,npatches,
      1  norders,ixyzs,iptype,npts,rhs,rhs_interp)
       erra = 0
       do i=1,ntarg
@@ -110,8 +111,8 @@
         enddo
       enddo
 
-      erra = sqrt(erra)
-      erra = erra/ra
+      erra = sqrt(erra/ntarg)
+      erra = erra
       call prin2('relative l2 error in interpolated value at targets=*',
      1   erra,1)
 

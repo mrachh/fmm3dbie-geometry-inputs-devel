@@ -1,5 +1,5 @@
 EXEC = int2-einterp
-HOST = gcc
+#HOST = gcc
 HOST = gcc-openmp
 #HOST = intel
 #HOST = intel-ompenmp

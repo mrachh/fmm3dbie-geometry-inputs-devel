@@ -426,12 +426,21 @@
              (1.0d0 + 3*hh/(10.0d0 + sqrt(4.0d0-3*hh)))
         
           nphi = ceiling(ellip_p/rmax)
-          ithet_start(i+1) = ithet_start(i) + 2*nphi
-          nphis(i) = nphi
+          ithet_start(ithet+1) = ithet_start(ithet) + 2*nphi
+          nphis(ithet) = nphi
         enddo
       endif
 
 
+      alpha = 1.0d0
+      beta = 0.0d0
+      incx = 1
+      incy = 1
+
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,xyz0,r,theta,phi) &
+!$OMP PRIVATE(ithetuse,hphi,iphiuse,u0,v0,uuse,vuse,ipatch_id) &
+!$OMP PRIVATE(uvs_targ,pols,norder,npols,ii)
       do i=1,ntarg
         xyz0(1) = xyztarg(1,i)/a
         xyz0(2) = xyztarg(2,i)/b
@@ -439,6 +448,7 @@
 
         call cart2polar(xyz0,r,theta,phi)
         if(phi.lt.0) phi = phi + 2*pi
+
 !
 !  figure out which ithet and which iphi
 !
@@ -455,22 +465,27 @@
         u0 = (ithetuse-1)*hthet
         v0 = (iphiuse-1.0d0)*hphi
 
-        uuse = (thet - u0)/hthet
-        vuse = (thet - v0)/hphi
+        uuse = (theta - u0)/hthet
+        vuse = (phi - v0)/hphi
+
+
 !
 !
 !     find which patch and local uv coordinates on each patch
 ! 
 
-        if(u0+v0.le.1) then
-          ipatch_id = ithet_start(ithetuse) + 2*(iphiuse-1) + 1
+        if(uuse+vuse.le.1) then
+          ipatch_id = ithet_start(ithetuse) + 2*(iphiuse-1) 
           uvs_targ(1) = uuse
           uvs_targ(2) = vuse
+
         else
-          ipatch_id = ithet_start(ithetuse) + 2*iphiuse
+          ipatch_id = ithet_start(ithetuse) + 2*(iphiuse-1)+1
           uvs_targ(1) = 1.0d0-uuse
           uvs_targ(2) = 1.0d0-vuse
         endif
+
+
 
 !
 !  Interpolate
@@ -479,14 +494,12 @@
         norder = norders(ipatch_id)
         npols = (norder+1)*(norder+2)/2
         call koorn_pols(uvs_targ,norder,npols,pols)
-        alpha = 1.0d0
-        beta = 0.0d0
-        incx = 1
-        incy = 1
         ii = ixyzs(ipatch_id)
+
         call dgemv_guru('n',nd,npols,alpha,ucoefs(1,ii),nd,pols,incx,beta, &
-          uinterp(1,i))
+          uinterp(1,i),incy)
       enddo
+!$OMP END PARALLEL DO      
 
 
 
