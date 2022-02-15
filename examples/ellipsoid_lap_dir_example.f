@@ -16,7 +16,7 @@
       real *8 dpars(2)
       integer numit,niter
 
-      real *8 pot,potex
+      real *8 pot,potex,dtmp
       complex *16 ztmp,ima
 
       data ima/(0.0d0,1.0d0)/
@@ -115,7 +115,7 @@
 
       
 
-      eps = 0.51d-6
+      eps = 0.51d-7
       numit = 50
       allocate(errs(numit+1))
       
@@ -135,8 +135,8 @@ c
       pot = 0
       do i=1,npts
         call l3d_comb(srcvals(1,i),3,xyz_in,2,dpars,0,zpars,0,ipars,
-     1     ztmp)
-        pot = pot + sigma(i)*wts(i)*ztmp
+     1     dtmp)
+        pot = pot + sigma(i)*wts(i)*dtmp
       enddo
 
       erra = abs(pot-potex)/abs(potex)
