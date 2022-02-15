@@ -305,8 +305,193 @@
 
 
 
+      subroutine ellipsoid_interp(nd,a,b,c,rmax,ifc,ntarg,xyztarg,npatches,&
+        norders,ixyzs,iptype,npts,u,uinterp)
+!
+!  This function interpolates a collection of functions defined on a triangulated
+!  ellipsoid with half axes a,b,c, maximum patch size rmax, at a collection
+!  of user specified targets on the ellipsoid provided in their cartesian 
+!  coordinates. 
+!
+!  Note that this subroutine assumes that the targets are on surface, 
+!  if they are not, then the interpolated values will be returned
+!  at the point with polar coorindates (\theta,\phi) for the target (x/a,y/b,z/c).
+!
+!  Input arguments:
+!    - nd: integer
+!        number of functions to interpolate
+!    - a: real *8
+!        half axis length in the x direction
+!    - b: real *8
+!        half axis length in the y direction
+!    - c: real *8
+!        half axis length in the z direction
+!    - rmax: real *8
+!        maximum patch size
+!    - ifc: integer
+!        flag for determining if the mesh should be conforming
+!        or not
+!        ifc = 1, then mesh is conforming
+!        ifc = 0, then mesh is non-conforming
+!    - ntarg: integer
+!        number of targets
+!    - xyztarg: real *8 (3,ntarg)
+!        xyz coordinates of the targets
+!    - npatches: integer
+!        number of patches in the discretization can be computed
+!        by a call to get_ellipsoid_mem
+!    - norders: integer(npatches)
+!        discretization order of patches
+!    - ixyzs: integer(npatches+1)
+!        starting location of points on patch i
+!    - iptype: integer(npatches)
+!        type of patch
+!        iptype = 1, triangle discretized using RV nodes
+!    - npts: integer
+!        number of points in the discretization = 
+!          npatches*(norder+1)*(norder+2)/2
+!    - u: real *8 (nd,npts)
+!        function values at the boundary points
+!
+!  Output arguments:
+!    - uinterp: real *8 (nd,ntarg)
+!        interpolated function values at the target locations
+!
+
+      implicit real *8 (a-h,o-z)
+      integer, intent(in) :: nd
+      real *8, intent(in) :: a,b,c,rmax
+      integer, intent(in) :: ifc,ntarg
+      real *8, intent(in) :: xyztarg(3,ntarg)
+      integer, intent(in) :: npatches,norders(npatches),ixyzs(npatches+1)
+      integer, intent(in) :: iptype(npatches),npts
+      real *8, intent(in) :: u(nd,npts)
+      real *8, intent(out) :: uinterp(nd,ntarg)
+!
+!  Temporary variables
+!
+      integer, allocatable :: ithet_start(:),nphis(:)
+      real *8, allocatable :: ucoefs(:,:),pols(:)
+      real *8 xyz0(3),uvs_targ(2)
+
+      done = 1.0d0
+      pi = atan(done)*4
+      
+      allocate(ucoefs(nd,npts))
+      call surf_vals_to_coefs(nd,npatches,norders,ixyzs,iptype,npts,&
+        u,ucoefs)
+      nthet = ceiling(2*c/rmax)
+      hthet = pi/(nthet+0.0d0)
+
+      nordermax = maxval(norders(1:npatches))
+      npmax = (nordermax+1)*(nordermax+2)/2
+      allocate(pols(npmax))
+!
+!  Figure out how many patches there in theta and phi directions
+!
+      
+      allocate(ithet_start(nthet+1),nphis(nthet))
+
+      if(ifc.eq.1) then
+
+        alpha = a
+        beta = b
+        hh = (alpha-beta)**2/(alpha+beta)**2 
+
+        ellip_p = pi*(alpha + beta)* &
+           (1.0d0 + 3*hh/(10.0d0 + sqrt(4.0d0-3*hh)))
+        
+        nphi = ceiling(ellip_p/rmax)
+        do i=1,nthet
+          ithet_start(i) = (i-1)*nphi*2 + 1
+          nphis(i) = nphi
+        enddo
+        ithet_start(nthet+1) = nthet*nphi*2+1
+      else
+        ithet_start(1) = 1
+        do ithet=1,nthet
+          t0 = (ithet-1)*hthet
+          t1 = (ithet)*hthet
+
+          tuse = t0
+          if(abs(t0-pi/2).ge.abs(t1-pi/2)) tuse = t1
+          if((t0-pi/2)*(t1-pi/2).le.0) tuse = pi/2
 
 
+          alpha = a*sin(tuse)
+          beta = b*sin(tuse)
+          hh = (alpha-beta)**2/(alpha+beta)**2 
+
+          ellip_p = pi*(alpha + beta)* &
+             (1.0d0 + 3*hh/(10.0d0 + sqrt(4.0d0-3*hh)))
+        
+          nphi = ceiling(ellip_p/rmax)
+          ithet_start(i+1) = ithet_start(i) + 2*nphi
+          nphis(i) = nphi
+        enddo
+      endif
+
+
+      do i=1,ntarg
+        xyz0(1) = xyztarg(1,i)/a
+        xyz0(2) = xyztarg(2,i)/b
+        xyz0(3) = xyztarg(3,i)/c
+
+        call cart2polar(xyz0,r,theta,phi)
+        if(phi.lt.0) phi = phi + 2*pi
+!
+!  figure out which ithet and which iphi
+!
+!
+        ithetuse = ceiling(theta/hthet)
+        if(ithetuse.eq.0) ithetuse = 1
+
+        hphi = (2*pi/nphis(ithetuse))
+        iphiuse = ceiling(phi/hphi)
+        if(iphiuse.eq.0) iphiuse = 1
+
+        
+        
+        u0 = (ithetuse-1)*hthet
+        v0 = (iphiuse-1.0d0)*hphi
+
+        uuse = (thet - u0)/hthet
+        vuse = (thet - v0)/hphi
+!
+!
+!     find which patch and local uv coordinates on each patch
+! 
+
+        if(u0+v0.le.1) then
+          ipatch_id = ithet_start(ithetuse) + 2*(iphiuse-1) + 1
+          uvs_targ(1) = uuse
+          uvs_targ(2) = vuse
+        else
+          ipatch_id = ithet_start(ithetuse) + 2*iphiuse
+          uvs_targ(1) = 1.0d0-uuse
+          uvs_targ(2) = 1.0d0-vuse
+        endif
+
+!
+!  Interpolate
+! 
+
+        norder = norders(ipatch_id)
+        npols = (norder+1)*(norder+2)/2
+        call koorn_pols(uvs_targ,norder,npols,pols)
+        alpha = 1.0d0
+        beta = 0.0d0
+        incx = 1
+        incy = 1
+        ii = ixyzs(ipatch_id)
+        call dgemv_guru('n',nd,npols,alpha,ucoefs(1,ii),nd,pols,incx,beta, &
+          uinterp(1,i))
+      enddo
+
+
+
+      end subroutine ellipsoid_interp
+     
 
 
 
