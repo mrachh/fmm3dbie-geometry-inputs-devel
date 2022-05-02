@@ -31,25 +31,26 @@
       pi = atan(done)*4
 
       k = 16
-      iref = 10
-      nmid = 5
+      iref = 0
+      nmid = 10
       nch2d = 2*(iref+1) + nmid
       npts2d = nch2d*k
       allocate(srcvals2d(8,npts2d),srccoefs2d(6,npts2d))
       allocate(ixys2d(nch2d+1),iptype2d(nch2d))
-      
-      t = 0.72d0
-      p1 = 0.4d0
-      p2 = 0.2d0
 
-      call get_oocyte3d_chunks(t,p1,p2,k,iref,nmid,nch2d,npts2d,
+      a = 0.25d0
+      b = 0.1d0
+      
+
+      call get_oocyte3d_riemann_chunks(a,b,k,iref,nmid,nch2d,npts2d,
      1   iptype2d,ixys2d,srccoefs2d,srcvals2d)
       call prin2('srccoefs2d=*',srccoefs2d,6*k)
 
-      rmax = 0.2d0
-      call get_oocyte3d_fun_mem(t,p1,p2,k,iref,nmid,nch2d,rmax,npatches)
+      rmax = 0.5d0
+      call get_oocyte3d_riemann_fun_mem(a,b,k,iref,nmid, 
+     1   nch2d,rmax,npatches)
 
-      norder = 8
+      norder = 4
       npols = (norder+1)*(norder+2)/2
 
       npts = npatches*npols
@@ -57,8 +58,8 @@
       allocate(srcvals(12,npts),srccoefs(9,npts))
       allocate(norders(npatches),ixyzs(npatches+1),iptype(npatches))
 
-      call get_oocyte3d_fun_geom(t,p1,p2,k,iref,nmid,nch2d,rmax,norder,
-     1   npatches,npts,norders,ixyzs,iptype,srcvals,srccoefs)
+      call get_oocyte3d_riemann_fun_geom(a,b,k,iref,nmid,nch2d,rmax,
+     1    norder,npatches,npts,norders,ixyzs,iptype,srcvals,srccoefs)
       call prinf('npatches=*',npatches,1)
       call prinf('npts=*',npts,1)
       print *, "npts=",npts
@@ -71,20 +72,21 @@
       call surf_quadratic_msh_vtk_plot(npatches,norders,ixyzs,iptype, 
      1  npts,srccoefs,srcvals,'oocyte_msh.vtk','a')
 
+
       call prin2('srccoefs head=*',srccoefs,54)
       call prin2('srccoefs tail=*',srccoefs(1:9,(npts-5):npts),54)
 
 
       ifinout = 1
 
-      r1 = 1.5d0 + 0.5d0*hkrand(0)
+      r1 = 2.5d0 + 0.5d0*hkrand(0)
       r2 = 0.1d0*hkrand(0)
       if(ifinout.eq.1) then
-        rin = r1
-        rout = r2
-      else
         rin = r2
         rout = r1
+      else
+        rin = r1
+        rout = r2
       endif
 
       thet = hkrand(0)*pi
