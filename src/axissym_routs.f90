@@ -1062,12 +1062,21 @@
       ntpbatch = ceiling((ntarg+0.0d0)/(nbatch+0.0d0))
 
 
+
       maxnewt = 10
       thresh = 1.0d-12
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibatch,itstart,itend,zmin) &
+!$OMP&PRIVATE(zmax,tl0,tr0,il0,ir0,i,zdiff,zavg,nbis,itarg,r,z,tl,tr,tm) &
+!$OMP&PRIVATE(zl,zr,zm,tmp,ibis,t0,idone,inewt,rr,zz,drdt,dzdt,d2rdt2) &
+!$OMP&PRIVATE(d2zdt2,fval,fder)
       do ibatch=1,nbatch
         itstart = (ibatch-1)*ntpbatch+1
         itend = ibatch*ntpbatch
         itend = min(itend,ntarg)
+
+        if(itstart.gt.ntarg) goto 2000
+
 
         zmin = rzvals_sort(2,itstart)
         zmax = rzvals_sort(2,itend)
@@ -1154,6 +1163,7 @@
 !  now start newton
 !   
           t0 = tm
+
           idone = 0
           do inewt = 1,maxnewt
             call fcurve(t0,np,pars,rr,zz,drdt,dzdt, &
@@ -1172,7 +1182,10 @@
           svals_sort(itarg) = t0
           res_sort(itarg) = abs(fval)
         enddo
+
+ 2000 continue      
       enddo
+!$OMP END PARALLEL DO      
 
 
 
