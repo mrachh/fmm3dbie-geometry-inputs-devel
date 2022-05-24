@@ -88,11 +88,11 @@
         if(rs(2).ge.radmax) radmax = rs(2)
 
         if(rlen.ge.2*pi*radmax) then
-          ns = max(ceiling(rlen/rmax),2)
-          nt = ceiling(ns*2*pi*radmax/rlen)
-        else
           nt = max(ceiling(2*pi*radmax/rmax),2)
           ns = ceiling(nt*rlen/2/pi/radmax)
+        else
+          ns = max(ceiling(rlen/rmax),2)
+          nt = ceiling(ns*2*pi*radmax/rlen)
         endif
 
 
@@ -228,12 +228,13 @@
         if(rs(2).ge.radmax) radmax = rs(2)
 
         if(rlen.ge.2*pi*radmax) then
-          ns = max(ceiling(rlen/rmax),2)
-          nt = ceiling(ns*2*pi*radmax/rlen)
-        else
           nt = max(ceiling(2*pi*radmax/rmax),2)
           ns = ceiling(nt*rlen/2/pi/radmax)
+        else
+          ns = max(ceiling(rlen/rmax),2)
+          nt = ceiling(ns*2*pi*radmax/rlen)
         endif
+
 
 
         umin = tchse(ich)
@@ -387,13 +388,12 @@
         if(rs(1).ge.radmax) radmax = rs(1)
         if(rs(2).ge.radmax) radmax = rs(2)
 
-
         if(rlen.ge.2*pi*radmax) then
-          ns = max(ceiling(rlen/rmax),2)
-          nt = ceiling(ns*2*pi*radmax/rlen)
-        else
           nt = max(ceiling(2*pi*radmax/rmax),2)
           ns = ceiling(nt*rlen/2/pi/radmax)
+        else
+          ns = max(ceiling(rlen/rmax),2)
+          nt = ceiling(ns*2*pi*radmax/rlen)
         endif
 
 
@@ -564,11 +564,11 @@
         if(rs(2).ge.radmax) radmax = rs(2)
 
         if(rlen.ge.2*pi*radmax) then
-          ns = max(ceiling(rlen/rmax),2)
-          nt = ceiling(ns*2*pi*radmax/rlen)
-        else
           nt = max(ceiling(2*pi*radmax/rmax),2)
           ns = ceiling(nt*rlen/2/pi/radmax)
+        else
+          ns = max(ceiling(rlen/rmax),2)
+          nt = ceiling(ns*2*pi*radmax/rlen)
         endif
 
 
