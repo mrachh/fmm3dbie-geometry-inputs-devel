@@ -883,16 +883,19 @@
       real *8, allocatable :: ts(:),umat(:,:),vmat(:,:),ws(:)
 
       integer, allocatable :: nsvec(:),ntvec(:),ichstart_vec(:)
-      real *8, allocatable :: svals(:),restarg(:)
+      real *8, allocatable :: svals(:),restarg(:),ssort(:)
+      integer, allocatable :: isort(:),ichtarg(:)
 
 
       
       real *8, pointer :: ptr1,ptr2,ptr3,ptr4
       integer, pointer :: iptr1,iptr2,iptr3,iptr4
+      integer incx,incy
+      real *8 alpha,beta
 
       external fcurve, xtri_axissym_fun_chunk
 
-      real *8 xs(2),rs(2)
+      real *8 xs(2),rs(2),xyz(3),uvs_targ(2)
 
       done = 1.0d0
       pi = atan(done)*4
@@ -904,10 +907,22 @@
       allocate(svals(ntarg),restarg(ntarg))
 
       call get_param_vals(nch2d,tchse,k,fcurve,np,pars,ntarg,xyztarg, &
-        svals,restarg) 
+        svals,restarg)
+
+      allocate(ucoefs(nd,npts))
+      call surf_vals_to_coefs(nd,npatches,norders,ixyzs,iptype,npts,u, &
+        ucoefs)
+
+      nordermax = maxval(norders(1:npatches))
+      npmax = (nordermax+1)*(nordermax+2)/2
+      allocate(pols(npmax))
 
 
       npatches0 = 0
+
+      allocate(nsvec(nch2d),ntvec(nch2d),ichstart_vec(nch2d+1))
+
+      ichstart_vec(1) = 1
       
 
       itristart = 1
@@ -937,13 +952,12 @@
         if(rs(2).ge.radmax) radmax = rs(2)
 
         if(rlen.ge.2*pi*radmax) then
-          ns = max(ceiling(rlen/rmax),2)
-          nt = ceiling(ns*2*pi*radmax/rlen)
-        else
           nt = max(ceiling(2*pi*radmax/rmax),2)
           ns = ceiling(nt*rlen/2/pi/radmax)
+        else
+          ns = max(ceiling(rlen/rmax),2)
+          nt = ceiling(ns*2*pi*radmax/rlen)
         endif
-
 
         umin = tchse(ich)
         umax = tchse(ich+1)
@@ -955,9 +969,97 @@
           vmin = 0
           vmax = 2*pi
         endif
+
+        nsvec(ich) = ns
+        ntvec(ich) = nt
+        ichstart_vec(ich+1) = ichstart_vec(ich) + 2*ns*nt
       enddo
 
-      npols = (norder+1)*(norder+2)/2
+
+      allocate(isort(ntarg),ssort(ntarg))
+      call sortr(ntarg,svals,isort)
+
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ii)
+      do i=1,ntarg
+        ii = isort(i)
+        ssort(i) = svals(ii) 
+      enddo
+!$OMP END PARALLEL DO
+
+!
+! Might need to parallelize this loop in the future
+!
+      ich = 1
+      allocate(ichtarg(ntarg))
+      do i=1,ntarg
+        if(ssort(i).ge.tchse(ich).and.ssort(i).le.tchse(ich+1)) then
+          ichtarg(i) = ich
+        else
+          ich = ich+1
+          ich = min(ich,nch2d)
+        endif
+      enddo
+
+      thetstart = 0
+      thetend = 2*pi
+      if(iort.ne.1) then 
+        thetstart = 2*pi
+        thetend = 0
+      endif
+
+      incx = 1
+      incy = 1
+      alpha = 1.0d0
+      beta = 0.0d0
+
+      do i=1,ntarg
+        ii = isort(i)
+        xyz(1:3) = xyztarg(1:3,ii)
+        thet = atan2(xyz(2),xyz(1))
+        if(thet.lt.0) thet = thet + 2*pi
+
+        ich = ichtarg(i)
+        nthet = ntvec(ich) 
+        hthet = (thetend-thetstart)/(nthet+0.0d0)
+        ithetuse = ceiling((thet-thetstart)/hthet)
+        if(ithetuse.eq.0) ithetuse = 1
+
+        tsstart = tchse(ich)
+        tsend = tchse(ich+1)
+        nss = nsvec(ich)
+        hss = (tsend-tsstart)/(nss+0.0d0)
+        isuse = ceiling((ssort(i)-tsstart)/hss)
+        if(isuse.eq.0) isuse = 1
+
+        u0 = tsstart + (isuse-1)*hss
+        v0 = thetstart + (ithetuse-1)*hthet
+
+        uuse = (ssort(i)-u0)/hss
+        vuse = (thet-v0)/hthet
+
+        if(uuse+vuse.le.1) then
+          ipatch_id = ichstart_vec(ich) + 2*(isuse-1)*nthet + 2*(ithetuse-1)
+          uvs_targ(1) = uuse
+          uvs_targ(2) = vuse
+        else
+          ipatch_id = ichstart_vec(ich) + 2*(isuse-1)*nthet + 2*(ithetuse-1)+1
+          uvs_targ(1) = 1.0d0-uuse
+          uvs_targ(2) = 1.0d0-vuse
+        endif
+
+        norder = norders(ipatch_id)
+        npols = (norder+1)*(norder+2)/2
+        call koorn_pols(uvs_targ,norder,npols,pols)
+
+        iii = ixyzs(ipatch_id)
+        call dgemv_guru('n',nd,npols,alpha,ucoefs(1,iii),nd,pols,incx,beta, &
+          uinterp(1,ii),incy)
+
+      enddo
+
+
+
 
       
 
