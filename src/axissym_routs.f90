@@ -797,9 +797,392 @@
 
       return
       end subroutine xtri_axissym_fun_chunk
+!
+!
+!
+!
+!
+!
+
+      subroutine axissym_fun_interp(nd,nch2d,tchse,k,fcurve,np,pars, &
+        rmax,iort,ntarg,xyztarg,npatches,norders,ixyzs,iptype,npts,u, &
+        uinterp)
+!
+!  This subroutine interpolates a collection of functions defined on 
+!  a triangulated axissymmetric geometry whose generating curve is 
+!  specified, at a collection of on surface targets defined via their
+!  cartesian coordinates
+!
+!  The axis of rotation is assumed to be the z
+!  axis.
+!
+!
+!  Input arguments:
+!    - nd: integer
+!        number of functions to interpolate
+!    - nch2d: integer
+!        number of chunks describing the generating curve
+!    - tchse: real *8 (nch2d+1)
+!        starting and ending location of in parameter space
+!        for each 2d chunk
+!    - k: integer
+!        number of points per chunk
+!    - fcurve: function handle
+!        function handle for corresponding to generating curve.
+!        Should have calling sequence
+!        fcurve(t,np,pars,r,z,drdt,dzdt,d2rdt2,d2zdt2)
+!    - np: integer
+!        number of parameters in fcurve
+!    - pars: real *8 (np)
+!        parameters of fcurve
+!    - rmax: real *8
+!        maximum panel dimension
+!    - iort: integer
+!        orientation of discretization
+!    - ntarg: integer
+!        number of targets
+!    - xyztarg: real *8 (3,ntarg)
+!         xyz coordinates of the target locations
+!    - npatches: integer
+!        number of patches in discretization
+!    - norders: integer(npatches)
+!        discretization order of patches
+!    - ixyzs: integer(npatches+1)
+!        starting location of points on patch i
+!    - iptype: integer(npatches)
+!        type of patch
+!        iptype = 1, triangle discretized using RV nodes
+!    - npts: integer
+!        number of points in the discretization =
+!          npatches*(norder+1)*(norder+2)/2
+!    - u: real *8 (nd,npts)
+!        function values at the boundary points
+!
+!  Output arguments:
+!    - uinterp: real *8 (nd,ntarg)
+!        interpolated function values at the target locations
+!
+      implicit real *8 (a-h,o-z)
+      integer, intent(in) :: nch2d,k,nd
+      integer, intent(in), target :: np
+      integer, intent(in) :: npatches,npts,iort,ntarg
+      real *8, intent(in) :: tchse(nch2d+1)
+      real *8, intent(in), target :: pars(np)
+      real *8, intent(in) :: rmax
+      integer, intent(in) :: norders(npatches),ixyzs(npatches+1)
+      integer, intent(in) :: iptype(npatches)
+      real *8, intent(in) :: xyztarg(3,ntarg)
+      real *8, intent(in) :: u(nd,npts)
+      real *8, intent(out) :: uinterp(nd,npts)
+
+!
+!  Temporary variables
+!
+      real *8, allocatable :: pols(:),ucoefs(:,:)
+      real *8, allocatable :: tloctarg(:)
+      real *8, allocatable :: ts(:),umat(:,:),vmat(:,:),ws(:)
+
+      integer, allocatable :: nsvec(:),ntvec(:),ichstart_vec(:)
+      real *8, allocatable :: svals(:),restarg(:)
+
+
+      
+      real *8, pointer :: ptr1,ptr2,ptr3,ptr4
+      integer, pointer :: iptr1,iptr2,iptr3,iptr4
+
+      external fcurve, xtri_axissym_fun_chunk
+
+      real *8 xs(2),rs(2)
+
+      done = 1.0d0
+      pi = atan(done)*4
+      allocate(ts(k),umat(k,k),vmat(k,k),ws(k))
+      
+      itype = 1
+      call legeexps(itype,k,ts,umat,vmat,ws)
+
+      allocate(svals(ntarg),restarg(ntarg))
+
+      call get_param_vals(nch2d,tchse,k,fcurve,np,pars,ntarg,xyztarg, &
+        svals,restarg) 
+
+
+      npatches0 = 0
+      
+
+      itristart = 1
+      nover = 0
+      do ich=1,nch2d
+
+
+        radmax = 0
+        rlen = 0
+        rs(1:2) = 0
+
+        h = (tchse(ich+1)-tchse(ich))/2
+        do j=1,k
+          tt = tchse(ich) + (ts(j)+1.0d0)/2*(tchse(ich+1)-tchse(ich))
+          call fcurve(tt,np,pars,r,z,drdt,dzdt, &
+            d2rdt2,d2zdt2)
+          if(r.ge.radmax) r = radmax
+          dsdt = sqrt(drdt**2 + dzdt**2)*h
+          rlen = rlen + dsdt*ws(j)
+        enddo
+
+        call fcurve(tchse(ich),np,pars,rs(1),z, &
+            drdt,dzdt,d2rdt2,d2zdt2)
+        call fcurve(tchse(ich+1),np,pars,rs(2),z, &
+            drdt,dzdt,d2rdt2,d2zdt2)
+        if(rs(1).ge.radmax) radmax = rs(1)
+        if(rs(2).ge.radmax) radmax = rs(2)
+
+        if(rlen.ge.2*pi*radmax) then
+          ns = max(ceiling(rlen/rmax),2)
+          nt = ceiling(ns*2*pi*radmax/rlen)
+        else
+          nt = max(ceiling(2*pi*radmax/rmax),2)
+          ns = ceiling(nt*rlen/2/pi/radmax)
+        endif
+
+
+        umin = tchse(ich)
+        umax = tchse(ich+1)
+        
+        if(iort.eq.1) then
+          vmin = 2*pi
+          vmax = 0
+        else
+          vmin = 0
+          vmax = 2*pi
+        endif
+      enddo
+
+      npols = (norder+1)*(norder+2)/2
+
+      
+
+      return
+      end subroutine axissym_fun_interp
+!
+!
+!
+!
+!
+!
+!
+      subroutine get_param_vals(nch2d,tchse,k,fcurve,np,pars,ntarg,xyztarg, &
+        svals,restarg) 
+!
+!  This subroutine estimates the parameter value of targets on the generating
+!  curve
+!
+!
+!  Input arguments:
+!    - nch2d: integer
+!        number of chunks describing the generating curve
+!    - tchse: real *8 (nch2d+1)
+!        starting and ending location of in parameter space
+!        for each 2d chunk
+!    - k: integer
+!        number of points per chunk
+!    - fcurve: function handle
+!        function handle for corresponding to generating curve.
+!        Should have calling sequence
+!        fcurve(t,np,pars,r,z,drdt,dzdt,d2rdt2,d2zdt2)
+!    - np: integer
+!        number of parameters in fcurve
+!    - pars: real *8 (np)
+!        parameters of fcurve
+!    - ntarg: integer
+!        number of targets
+!    - xyztarg: real *8 (3,ntarg)
+!         xyz coordinates of the target locations
+!
+!  Output arguments:
+!    - svals: real *8 (ntarg)
+!         parameter values on the generating curve
+!    - restarg: real *8 (ntarg)
+!         residue at target location 
+!
+      implicit real *8 (a-h,o-z)
+      integer, intent(in) :: nch2d,k,np,ntarg
+      real *8, intent(in) :: tchse(nch2d+1),pars(np),xyztarg(3,ntarg)
+      real *8, intent(out) :: svals(ntarg),restarg(ntarg)
+
+!
+!  temporary variable
+!
+      real *8, allocatable :: rzvals_sort(:,:),zch(:)
+      real *8, allocatable :: svals_sort(:),res_sort(:)
+      integer, allocatable :: isort(:)
+      integer, external :: OMP_GET_MAX_THREADS
+      external fcurve
+
+      allocate(isort(ntarg))
+
+      call sortr(ntarg,xyztarg(3,1:ntarg),isort)
+
+
+      allocate(svals_sort(ntarg),res_sort(ntarg))
+
+      allocate(rzvals_sort(2,ntarg),zch(nch2d+1))
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(tt,tmp)
+      do i=1,nch2d+1
+          tt = tchse(i)
+          call fcurve(tt,np,pars,tmp,zch(i),tmp,tmp, &
+            tmp,tmp)
+      enddo
+!$OMP END PARALLEL DO
+
+
+! figure out whether z coordinate is increasing or decreasing
+
+      isign = -1
+      if(zch(nch2d+1).ge.zch(1)) isign = 1
+
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ii)
+      do i=1,ntarg
+        ii = isort(i)
+        rzvals_sort(1,i) = sqrt(xyztarg(1,ii)**2 + xyztarg(2,ii)**2)
+        rzvals_sort(2,i) = xyztarg(3,ii)
+      enddo
+!$OMP END PARALLEL DO
+
+      
+      nthreads = 1
+!$     nthreads = OMP_GET_MAX_THREADS()
+      
+      if(ntarg.le.2*nthreads.or.nthreads == 1) then
+         nbatch = 1
+      else
+         nbatch = nthreads
+      endif
+
+      ntpbatch = ceiling((ntarg+0.0d0)/(nbatch+0.0d0))
+
+
+      maxnewt = 10
+      thresh = 1.0d-12
+      do ibatch=1,nbatch
+        itstart = (ibatch-1)*ntpbatch+1
+        itend = ibatch*ntpbatch
+        itend = min(itend,ntarg)
+
+        zmin = rzvals_sort(2,itstart)
+        zmax = rzvals_sort(2,itend)
+        
+        tl0 = tchse(1)
+        tr0 = tchse(nch2d+1)
+        if(isign.eq.1) then
+          do i=1,nch2d
+             if(zmin.ge.zch(i).and.zmin.le.zch(i+1)) then
+               tl0 = tchse(i)
+               il0 = i
+               goto 1111
+             endif
+          enddo
+ 1111     continue
+          
+          do i=1,nch2d
+             if(zmax.ge.zch(i).and.zmax.le.zch(i+1)) then
+               tr0 = tchse(i+1)
+               ir0 = i+1
+               goto 1112
+             endif
+          enddo
+ 1112     continue
+ 
+        else
+          do i=1,nch2d
+             if(zmin.le.zch(i).and.zmin.ge.zch(i+1)) then
+               tl0 = tchse(i+1)
+               il0 = i+1
+               goto 1114
+             endif
+          enddo
+ 1114     continue
+          
+          do i=1,nch2d
+             if(zmax.le.zch(i).and.zmax.ge.zch(i+1)) then
+               tr0 = tchse(i)
+               ir0 = i
+               goto 1115
+             endif
+          enddo
+ 1115     continue
+        endif
+
+
+        zdiff = zmax-zmin
+        zavg = 0.5d0*(zmax+zmin)
+
+        nbis = 10 + log(max(zdiff,1e-16)/zavg)/log(2.0d0)
+        nbis = max(nbis,3)
 
 
 
+        do itarg = itstart,itend
+          r = rzvals_sort(1,itarg)
+          z = rzvals_sort(2,itarg)
+          tl = tl0
+          zl = zch(il0)-z
+          tr = tr0
+          zr = zch(ir0)-z
+
+          if(zl*zr.gt.0) then
+            print *, "Something bad happened in bisection"
+            print *, "itarg=",itarg
+          endif
+
+          do ibis = 1,nbis
+            tm = (tl+tr)/2
+            call fcurve(tm,np,pars,tmp,zm,tmp,tmp, &
+              tmp,tmp)
+
+            zm = zm-z
+
+            if(zm*zl.le.0) then
+              tr = tm
+              zr = zm
+            else
+              tl = tm
+              zl = zm
+            endif
+          enddo
+!
+!  now start newton
+!   
+          t0 = tm
+          idone = 0
+          do inewt = 1,maxnewt
+            call fcurve(t0,np,pars,rr,zz,drdt,dzdt, &
+              d2rdt2,d2zdt2)
+            rr = rr-r
+            zz = zz-z
+            fval = rr*drdt + zz*dzdt
+            fder = rr*d2rdt2 + zz*d2zdt2 + drdt**2 + dzdt**2
+            
+            t0 = t0 - fval/fder
+            if(abs(fval).le.thresh) idone = idone + 1
+
+            if(idone.ge.3) goto 1200
+          enddo
+ 1200     continue
+          svals_sort(itarg) = t0
+          res_sort(itarg) = abs(fval)
+        enddo
+      enddo
 
 
 
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ii)
+      do i=1,ntarg
+        ii = isort(i)
+        svals(ii) = svals_sort(i)
+        restarg(ii) = res_sort(i)
+      enddo
+!$OMP END PARALLEL DO
+
+      return
+      end subroutine get_param_vals
