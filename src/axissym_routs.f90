@@ -910,8 +910,10 @@
         svals,restarg)
 
       allocate(ucoefs(nd,npts))
+
       call surf_vals_to_coefs(nd,npatches,norders,ixyzs,iptype,npts,u, &
         ucoefs)
+
 
       nordermax = maxval(norders(1:npatches))
       npmax = (nordermax+1)*(nordermax+2)/2
@@ -977,6 +979,9 @@
 
 
       allocate(isort(ntarg),ssort(ntarg))
+
+      print *, "Here"
+
       call sortr(ntarg,svals,isort)
 
 
@@ -987,32 +992,45 @@
       enddo
 !$OMP END PARALLEL DO
 
+
 !
 ! Might need to parallelize this loop in the future
 !
-      ich = 1
+      ich0 = 1
       allocate(ichtarg(ntarg))
+
+      call prin2('ssort=*',ssort,12)
+      call prin2('svals=*',svals,12)
+
       do i=1,ntarg
-        if(ssort(i).ge.tchse(ich).and.ssort(i).le.tchse(ich+1)) then
-          ichtarg(i) = ich
-        else
-          ich = ich+1
-          ich = min(ich,nch2d)
-        endif
+        do ich=ich0,nch2d 
+          if(ssort(i).ge.tchse(ich).and.ssort(i).le.tchse(ich+1)) then
+            ichtarg(i) = ich
+            ich0 = ich
+            goto 1221
+          endif
+        enddo
+ 1221   continue        
       enddo
+
+      call prinf('ichtarg=*',ichtarg,20)
 
       thetstart = 0
       thetend = 2*pi
-      if(iort.ne.1) then 
+      if(iort.eq.1) then 
         thetstart = 2*pi
         thetend = 0
       endif
+
 
       incx = 1
       incy = 1
       alpha = 1.0d0
       beta = 0.0d0
 
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ii,xyz,thet,ich,nthet) &
+!$OMP&PRIVATE(hthet,ithetuse,tsstart,tsend,nss,hss,isuse,u0,v0) &
+!$OMP&PRIVATE(uuse,vuse,ipatch_id,uvs_targ,norder,npols,pols,iii)
       do i=1,ntarg
         ii = isort(i)
         xyz(1:3) = xyztarg(1:3,ii)
@@ -1057,6 +1075,7 @@
           uinterp(1,ii),incy)
 
       enddo
+!$OMP END PARALLEL DO      
 
 
 
