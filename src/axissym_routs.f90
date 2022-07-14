@@ -1091,6 +1091,274 @@
 !
 !
 !
+!
+
+      subroutine axissym_fun_local_coord_targ(nch2d,tchse,k, &
+        fcurve,np,pars,rmax,iort,ntarg,xyztarg,npatches,norders, &
+        ixyzs,iptype,npts,ipatchtarg,uvs_targ)
+!
+!  This subroutine extracts the local patch id and uv coordinates
+!  for a collection of targets on  
+!  a triangulated axissymmetric geometry whose generating curve is 
+!  specified, at a collection of on surface targets defined via their
+!  cartesian coordinates
+!
+!  The axis of rotation is assumed to be the z
+!  axis.
+!
+!
+!  Input arguments:
+!    - nd: integer
+!        number of functions to interpolate
+!    - nch2d: integer
+!        number of chunks describing the generating curve
+!    - tchse: real *8 (nch2d+1)
+!        starting and ending location of in parameter space
+!        for each 2d chunk
+!    - k: integer
+!        number of points per chunk
+!    - fcurve: function handle
+!        function handle for corresponding to generating curve.
+!        Should have calling sequence
+!        fcurve(t,np,pars,r,z,drdt,dzdt,d2rdt2,d2zdt2)
+!    - np: integer
+!        number of parameters in fcurve
+!    - pars: real *8 (np)
+!        parameters of fcurve
+!    - rmax: real *8
+!        maximum panel dimension
+!    - iort: integer
+!        orientation of discretization
+!    - ntarg: integer
+!        number of targets
+!    - xyztarg: real *8 (3,ntarg)
+!         xyz coordinates of the target locations
+!    - npatches: integer
+!        number of patches in discretization
+!    - norders: integer(npatches)
+!        discretization order of patches
+!    - ixyzs: integer(npatches+1)
+!        starting location of points on patch i
+!    - iptype: integer(npatches)
+!        type of patch
+!        iptype = 1, triangle discretized using RV nodes
+!    - npts: integer
+!        number of points in the discretization =
+!          npatches*(norder+1)*(norder+2)/2
+!
+!  Output arguments:
+!    - ipatchtarg: integer(ntarg)
+!        ipatchtarg(i) is the patch on which target i is located
+!    - uvs_targ: real *8 (2,ntarg)
+!        local uv coordinates on patch
+!
+      implicit real *8 (a-h,o-z)
+      integer, intent(in) :: nch2d,k
+      integer, intent(in), target :: np
+      integer, intent(in) :: npatches,npts,iort,ntarg
+      real *8, intent(in) :: tchse(nch2d+1)
+      real *8, intent(in), target :: pars(np)
+      real *8, intent(in) :: rmax
+      integer, intent(in) :: norders(npatches),ixyzs(npatches+1)
+      integer, intent(in) :: iptype(npatches)
+      real *8, intent(in) :: xyztarg(3,ntarg)
+      integer, intent(out) :: ipatchtarg(ntarg)
+      real *8, intent(out) :: uvs_targ(2,ntarg)
+
+!
+!  Temporary variables
+!
+      real *8, allocatable :: ts(:),umat(:,:),vmat(:,:),ws(:)
+
+      integer, allocatable :: nsvec(:),ntvec(:),ichstart_vec(:)
+      real *8, allocatable :: svals(:),restarg(:),ssort(:)
+      integer, allocatable :: isort(:),ichtarg(:)
+
+
+      
+      real *8, pointer :: ptr1,ptr2,ptr3,ptr4
+      integer, pointer :: iptr1,iptr2,iptr3,iptr4
+      integer incx,incy
+      real *8 alpha,beta
+
+      external fcurve, xtri_axissym_fun_chunk
+
+      real *8 xs(2),rs(2),xyz(3)
+
+      done = 1.0d0
+      pi = atan(done)*4
+      allocate(ts(k),umat(k,k),vmat(k,k),ws(k))
+      
+      itype = 1
+      call legeexps(itype,k,ts,umat,vmat,ws)
+
+      allocate(svals(ntarg),restarg(ntarg))
+
+      call get_param_vals(nch2d,tchse,k,fcurve,np,pars,ntarg,xyztarg, &
+        svals,restarg)
+
+
+      nordermax = maxval(norders(1:npatches))
+      npmax = (nordermax+1)*(nordermax+2)/2
+
+
+      npatches0 = 0
+
+      allocate(nsvec(nch2d),ntvec(nch2d),ichstart_vec(nch2d+1))
+
+      ichstart_vec(1) = 1
+      
+
+      itristart = 1
+      nover = 0
+      do ich=1,nch2d
+
+
+        radmax = 0
+        rlen = 0
+        rs(1:2) = 0
+
+        h = (tchse(ich+1)-tchse(ich))/2
+        do j=1,k
+          tt = tchse(ich) + (ts(j)+1.0d0)/2*(tchse(ich+1)-tchse(ich))
+          call fcurve(tt,np,pars,r,z,drdt,dzdt, &
+            d2rdt2,d2zdt2)
+          if(r.ge.radmax) r = radmax
+          dsdt = sqrt(drdt**2 + dzdt**2)*h
+          rlen = rlen + dsdt*ws(j)
+        enddo
+
+        call fcurve(tchse(ich),np,pars,rs(1),z, &
+            drdt,dzdt,d2rdt2,d2zdt2)
+        call fcurve(tchse(ich+1),np,pars,rs(2),z, &
+            drdt,dzdt,d2rdt2,d2zdt2)
+        if(rs(1).ge.radmax) radmax = rs(1)
+        if(rs(2).ge.radmax) radmax = rs(2)
+
+        if(rlen.ge.2*pi*radmax) then
+          nt = max(ceiling(2*pi*radmax/rmax),2)
+          ns = ceiling(nt*rlen/2/pi/radmax)
+        else
+          ns = max(ceiling(rlen/rmax),2)
+          nt = ceiling(ns*2*pi*radmax/rlen)
+        endif
+
+        umin = tchse(ich)
+        umax = tchse(ich+1)
+        
+        if(iort.eq.1) then
+          vmin = 2*pi
+          vmax = 0
+        else
+          vmin = 0
+          vmax = 2*pi
+        endif
+
+        nsvec(ich) = ns
+        ntvec(ich) = nt
+        ichstart_vec(ich+1) = ichstart_vec(ich) + 2*ns*nt
+      enddo
+
+
+      allocate(isort(ntarg),ssort(ntarg))
+
+
+      call sortr(ntarg,svals,isort)
+
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ii)
+      do i=1,ntarg
+        ii = isort(i)
+        ssort(i) = svals(ii) 
+      enddo
+!$OMP END PARALLEL DO
+
+
+!
+! Might need to parallelize this loop in the future
+!
+      ich0 = 1
+      allocate(ichtarg(ntarg))
+
+
+      do i=1,ntarg
+        do ich=ich0,nch2d 
+          if(ssort(i).ge.tchse(ich).and.ssort(i).le.tchse(ich+1)) then
+            ichtarg(i) = ich
+            ich0 = ich
+            goto 1221
+          endif
+        enddo
+ 1221   continue        
+      enddo
+
+      call prinf('ichtarg=*',ichtarg,20)
+
+      thetstart = 0
+      thetend = 2*pi
+      if(iort.eq.1) then 
+        thetstart = 2*pi
+        thetend = 0
+      endif
+
+
+      incx = 1
+      incy = 1
+      alpha = 1.0d0
+      beta = 0.0d0
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ii,xyz,thet,ich,nthet) &
+!$OMP&PRIVATE(hthet,ithetuse,tsstart,tsend,nss,hss,isuse,u0,v0) &
+!$OMP&PRIVATE(uuse,vuse)
+      do i=1,ntarg
+        ii = isort(i)
+        xyz(1:3) = xyztarg(1:3,ii)
+        thet = atan2(xyz(2),xyz(1))
+        if(thet.lt.0) thet = thet + 2*pi
+
+        ich = ichtarg(i)
+        nthet = ntvec(ich) 
+        hthet = (thetend-thetstart)/(nthet+0.0d0)
+        ithetuse = ceiling((thet-thetstart)/hthet)
+        if(ithetuse.eq.0) ithetuse = 1
+
+        tsstart = tchse(ich)
+        tsend = tchse(ich+1)
+        nss = nsvec(ich)
+        hss = (tsend-tsstart)/(nss+0.0d0)
+        isuse = ceiling((ssort(i)-tsstart)/hss)
+        if(isuse.eq.0) isuse = 1
+
+        u0 = tsstart + (isuse-1)*hss
+        v0 = thetstart + (ithetuse-1)*hthet
+
+        uuse = (ssort(i)-u0)/hss
+        vuse = (thet-v0)/hthet
+
+        if(uuse+vuse.le.1) then
+          ipatchtarg(ii) = ichstart_vec(ich) + 2*(isuse-1)*nthet + 2*(ithetuse-1)
+          uvs_targ(1,ii) = uuse
+          uvs_targ(2,ii) = vuse
+        else
+          ipatchtarg(ii) = ichstart_vec(ich) + 2*(isuse-1)*nthet + 2*(ithetuse-1)+1
+          uvs_targ(1,ii) = 1.0d0-uuse
+          uvs_targ(2,ii) = 1.0d0-vuse
+        endif
+
+      enddo
+!$OMP END PARALLEL DO      
+
+
+
+
+      
+
+      return
+      end subroutine axissym_fun_local_coord_targ
+!
+!
+!
+!
       subroutine get_param_vals(nch2d,tchse,k,fcurve,np,pars,ntarg,xyztarg, &
         svals,restarg) 
 !

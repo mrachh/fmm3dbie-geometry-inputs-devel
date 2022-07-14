@@ -4,7 +4,7 @@
       character *100 fname
       integer ipars(2)
 
-      real *8, allocatable :: targs(:,:),uvs_targ(:,:)
+      real *8, allocatable :: targs(:,:)
       integer, allocatable :: ipatch_id(:)
 
       integer, allocatable :: norders(:),ixyzs(:),iptype(:)
@@ -15,6 +15,10 @@
       real *8, allocatable :: errs(:)
       real *8 dpars(2)
       integer numit,niter
+
+      real *8, allocatable :: uvs_targ(:,:)
+      integer, allocatable :: ipatchtarg(:),ixmattarg(:)
+      real *8, allocatable :: xmattarg(:)
 
       real *8 pot,potex
       complex *16 ztmp,ima
@@ -104,6 +108,54 @@
 
       call ellipsoid_interp(nd,a,b,c,rmax,ifc,ntarg,targs,npatches,
      1  norders,ixyzs,iptype,npts,rhs,rhs_interp)
+      erra = 0
+      do i=1,ntarg
+        do idim=1,nd
+          erra = erra + (rhs_interp(idim,i) - rhs_ex(idim,i))**2
+        enddo
+      enddo
+
+      erra = sqrt(erra/ntarg)
+      erra = erra
+      call prin2('relative l2 error in interpolated value at targets=*',
+     1   erra,1)
+
+      allocate(ipatchtarg(ntarg),uvs_targ(2,ntarg))
+      call ellipsoid_local_coord_targ(a,b,c,rmax,ifc,ntarg,targs,
+     1   npatches,norders,ixyzs,iptype,npts,ipatchtarg,uvs_targ)
+      
+
+      lmem = 0
+
+      call get_surf_interp_mat_targ_mem(npatches,ixyzs,ntarg,
+     1  ipatchtarg,lmem)
+      call prinf('lmem =*',lmem,1)
+      call prinf('expected lmem=*',ntarg*npols,1)
+
+      allocate(ixmattarg(ntarg+1),xmattarg(lmem))
+      call get_surf_interp_mat_targ(npatches,norders,ixyzs,iptype,npts,
+     1 ntarg,ipatchtarg,uvs_targ,lmem,xmattarg,ixmattarg)
+
+c
+c  check interpolation error using xmattarg
+c
+c
+      rhs_interp = 0
+
+      do i=1,ntarg
+        ipatch = ipatchtarg(i)
+        istart = ixyzs(ipatch)
+        istart2 = ixmattarg(i)
+        npols_use = ixyzs(ipatch+1) - ixyzs(ipatch) 
+        do l=1,npols
+          do idim = 1,nd
+            rhs_interp(idim,i) = rhs_interp(idim,i) +
+     1         xmattarg(istart2+l-1)*rhs(idim,istart+l-1)
+          enddo
+        enddo
+      enddo
+
+
       erra = 0
       do i=1,ntarg
         do idim=1,nd

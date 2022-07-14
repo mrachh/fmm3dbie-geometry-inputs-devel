@@ -4,7 +4,7 @@
       character *100 fname
       integer ipars(2)
 
-      real *8, allocatable :: targs(:,:),uvs_targ(:,:)
+      real *8, allocatable :: targs(:,:)
       integer, allocatable :: ipatch_id(:)
 
       integer, allocatable :: norders(:),ixyzs(:),iptype(:)
@@ -16,6 +16,8 @@
       real *8 did
       real *8, allocatable :: errs(:)
       real *8, allocatable :: tchse(:)
+      integer, allocatable :: ipatchtarg(:),ixmattarg(:)
+      real *8, allocatable :: xmattarg(:),uvs_targ(:,:)
       real *8 dpars(2)
       integer numit,niter
 
@@ -120,7 +122,7 @@
 
 
 
-      ntarg = 10000
+      ntarg = 20
       allocate(targs(3,ntarg),rhs_ex(nd,ntarg),rhs_interp(nd,ntarg))
       do i=1,ntarg
         tval = hkrand(0) 
@@ -140,6 +142,60 @@
       call axissym_fun_interp(nd,nch2d,tchse,k,funcurve_oocyte_riemann,
      1  np,pars,rmax,iort,ntarg,targs,npatches,norders,ixyzs,iptype,
      2  npts,rhs,rhs_interp)
+
+      erra = 0
+      do i=1,ntarg
+        do idim=1,nd
+          erra = erra + (rhs_interp(idim,i) - rhs_ex(idim,i))**2
+        enddo
+      enddo
+
+      erra = sqrt(erra/ntarg)
+      erra = erra
+      call prin2('relative l2 error in interpolated value at targets=*',
+     1   erra,1)
+
+
+      allocate(ipatchtarg(ntarg),uvs_targ(2,ntarg))
+      call axissym_fun_local_coord_targ(nch2d,tchse,k,
+     1  funcurve_oocyte_riemann,
+     1  np,pars,rmax,iort,ntarg,targs,npatches,norders,ixyzs,iptype,
+     2  npts,ipatchtarg,uvs_targ)
+      
+      call prinf('ipatchtarg=*',ipatchtarg,ntarg)
+      call prin2('uvs_targ=*',uvs_targ,2*ntarg)
+      
+
+      lmem = 0
+
+      call get_surf_interp_mat_targ_mem(npatches,ixyzs,ntarg,
+     1  ipatchtarg,lmem)
+      call prinf('lmem =*',lmem,1)
+      call prinf('expected lmem=*',ntarg*npols,1)
+
+      allocate(ixmattarg(ntarg+1),xmattarg(lmem))
+      call get_surf_interp_mat_targ(npatches,norders,ixyzs,iptype,npts,
+     1 ntarg,ipatchtarg,uvs_targ,lmem,xmattarg,ixmattarg)
+
+c
+c  check interpolation error using xmattarg
+c
+c
+      rhs_interp = 0
+
+      do i=1,ntarg
+        ipatch = ipatchtarg(i)
+        istart = ixyzs(ipatch)
+        istart2 = ixmattarg(i)
+        npols_use = ixyzs(ipatch+1) - ixyzs(ipatch) 
+        do l=1,npols
+          do idim = 1,nd
+            rhs_interp(idim,i) = rhs_interp(idim,i) +
+     1         xmattarg(istart2+l-1)*rhs(idim,istart+l-1)
+          enddo
+        enddo
+      enddo
+
 
       erra = 0
       do i=1,ntarg
