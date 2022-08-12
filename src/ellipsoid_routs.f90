@@ -693,3 +693,30 @@
 
 
 
+
+
+      subroutine check_ellipsoid_interior(a,b,c,xyz,inflag)
+!
+!  This subroutine tests whether a given point xyz is inside
+!  an ellipse or not 
+!  
+!
+!  inflag = -1, inside the domain
+!  inflag = 0, on the boundary
+!  inflag = 1, outside the domain
+!
+      implicit real *8 (a-h,o-z)
+      real *8, intent(in) :: a,b,c,xyz(3)
+      integer, intent(out) :: inflag
+      real *8 rr
+
+      inflag = 0
+      rr = xyz(1)**2/a**2 + xyz(2)**2/b**2 + xyz(3)**2/c**2
+      
+      if(rr.gt.1) inflag = 1
+      if(rr.lt.1) inflag = -1
+      
+
+      return
+      end
+      
