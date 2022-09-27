@@ -20,6 +20,9 @@
       integer, allocatable :: ipatchtarg(:),ixmattarg(:)
       real *8, allocatable :: xmattarg(:)
 
+      real *8, allocatable :: xyztarg(:,:),ftarg(:)
+      integer, allocatable :: itarg(:)
+
       real *8 pot,potex
       complex *16 ztmp,ima
 
@@ -167,6 +170,36 @@ c
       erra = erra
       call prin2('relative l2 error in interpolated value at targets=*',
      1   erra,1)
+
+      
+      ntarg = 1000
+      allocate(xyztarg(3,ntarg))
+
+      allocate(itarg(ntarg),ftarg(ntarg))
+
+      xmax = 2*a
+      xmin = -2*a
+      ymax = 2*b
+      ymin = -2*b
+      zmax = 2*c
+      zmin = -2*c
+
+      do i=1,ntarg
+        xyztarg(1,i) = hkrand(0)*(xmax-xmin) + xmin
+        xyztarg(2,i) = hkrand(0)*(ymax-ymin) + ymin
+        xyztarg(3,i) = hkrand(0)*(zmax-zmin) + zmin
+        call check_ellipsoid_interior(a,b,c,xyztarg(1,i),itarg(i))
+        ftarg(i) = itarg(i) + 0.0d0
+      enddo
+
+      call surf_vtk_plot(npatches,norders,ixyzs,iptype,npts,srccoefs,
+     1   srcvals,'ellipsoid.vtk','a')
+      call vtk_scatter_plot_scalar(ntarg,xyztarg,
+     1   ftarg,'ellip_pts.vtk','a')
+      
+
+
+      
 
       stop
       end
