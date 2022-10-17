@@ -62,8 +62,8 @@
       endif
 
       k = 16
-      iref = 3
-      nmid = 10
+      iref = 0
+      nmid = 1
       nch2d = 2*(iref+1) + nmid
       npts2d = nch2d*k
 
@@ -183,8 +183,8 @@
      1  np,pars,rmax,iort,ntarg,targs,npatches,norders,ixyzs,iptype,
      2  npts,ipatchtarg,uvs_targ)
       
-      call prinf('ipatchtarg=*',ipatchtarg,ntarg)
-      call prin2('uvs_targ=*',uvs_targ,2*ntarg)
+cc      call prinf('ipatchtarg=*',ipatchtarg,ntarg)
+cc      call prin2('uvs_targ=*',uvs_targ,2*ntarg)
       
 
       lmem = 0
