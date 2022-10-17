@@ -10,7 +10,7 @@
       integer, allocatable :: norders(:),ixyzs(:),iptype(:)
 
       real *8 xyz_out(3),xyz_in(3)
-      real *8 pars(2)
+      real *8 pars(3)
       
       real *8, allocatable :: rhs(:,:),rhs_interp(:,:),rhs_ex(:,:)
       real *8 did
@@ -23,8 +23,9 @@
 
       real *8 pot,potex
       complex *16 ztmp,ima
+      procedure (), pointer :: funcurve
 
-      external funcurve_oocyte_riemann
+      external funcurve_oocyte,funcurve_oocyte_riemann
 
       data ima/(0.0d0,1.0d0)/
 
@@ -34,14 +35,34 @@
       done = 1
       pi = atan(done)*4
 
-      a = 0.25d0
-      b = 0.1d0
+      ifriemann = 0
 
-      pars(1) = a
-      pars(2) = b
+      if(ifriemann.eq.1) then
+
+        a = 0.25d0
+        b = 0.1d0
+
+        np = 2
+
+        pars(1) = a
+        pars(2) = b
+        funcurve => funcurve_oocyte_riemann
+      else
+        tt = 0.72d0
+        p1 = 0.4d0
+        p2 = 0.2d0
+
+        np = 3
+        pars(1) = tt
+        pars(2) = p1
+        pars(3) = p2
+        funcurve => funcurve_oocyte
+
+
+      endif
 
       k = 16
-      iref = 0
+      iref = 3
       nmid = 10
       nch2d = 2*(iref+1) + nmid
       npts2d = nch2d*k
@@ -51,7 +72,7 @@
 
       rmax = 1.0d0
 
-      call get_axissym_fun_mem(nch2d,tchse,k,funcurve_oocyte_riemann,
+      call get_axissym_fun_mem(nch2d,tchse,k,funcurve,
      1   np,pars,rmax,npatches)
       call prinf('npatches=*',npatches,1)
       norder = 4
@@ -63,7 +84,7 @@
       allocate(norders(npatches),ixyzs(npatches+1),iptype(npatches))
 
       iort = 1
-      call get_axissym_fun_geom(nch2d,tchse,k,funcurve_oocyte_riemann,
+      call get_axissym_fun_geom(nch2d,tchse,k,funcurve,
      1  np,pars,rmax,iort,norder,npatches,npts,norders,ixyzs,iptype,
      2  srcvals,srccoefs)
       call prinf('npatches=*',npatches,1)
@@ -122,12 +143,12 @@
 
 
 
-      ntarg = 20
+      ntarg = 1000
       allocate(targs(3,ntarg),rhs_ex(nd,ntarg),rhs_interp(nd,ntarg))
       do i=1,ntarg
         tval = hkrand(0) 
         thet = hkrand(0)*2*pi
-        call funcurve_oocyte_riemann(tval,np,pars,rr,zz,tmp,tmp,tmp,
+        call funcurve(tval,np,pars,rr,zz,tmp,tmp,tmp,
      1    tmp)
         targs(1,i) = rr*cos(thet)
         targs(2,i) = rr*sin(thet)
@@ -139,7 +160,7 @@
       enddo
 
 
-      call axissym_fun_interp(nd,nch2d,tchse,k,funcurve_oocyte_riemann,
+      call axissym_fun_interp(nd,nch2d,tchse,k,funcurve,
      1  np,pars,rmax,iort,ntarg,targs,npatches,norders,ixyzs,iptype,
      2  npts,rhs,rhs_interp)
 
@@ -158,7 +179,7 @@
 
       allocate(ipatchtarg(ntarg),uvs_targ(2,ntarg))
       call axissym_fun_local_coord_targ(nch2d,tchse,k,
-     1  funcurve_oocyte_riemann,
+     1  funcurve,
      1  np,pars,rmax,iort,ntarg,targs,npatches,norders,ixyzs,iptype,
      2  npts,ipatchtarg,uvs_targ)
       
