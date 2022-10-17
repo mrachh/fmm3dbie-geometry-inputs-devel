@@ -908,6 +908,7 @@
 
       call get_param_vals(nch2d,tchse,k,fcurve,np,pars,ntarg,xyztarg, &
         svals,restarg)
+!      call prin2('svals=*',svals,ntarg)
 
       allocate(ucoefs(nd,npts))
 
@@ -980,8 +981,6 @@
 
       allocate(isort(ntarg),ssort(ntarg))
 
-      print *, "Here"
-
       call sortr(ntarg,svals,isort)
 
 
@@ -999,8 +998,8 @@
       ich0 = 1
       allocate(ichtarg(ntarg))
 
-      call prin2('ssort=*',ssort,12)
-      call prin2('svals=*',svals,12)
+!      call prin2('ssort=*',ssort,12)
+!      call prin2('svals=*',svals,12)
 
       do i=1,ntarg
         do ich=ich0,nch2d 
@@ -1013,7 +1012,7 @@
  1221   continue        
       enddo
 
-      call prinf('ichtarg=*',ichtarg,20)
+!      call prinf('ichtarg=*',ichtarg,20)
 
       thetstart = 0
       thetend = 2*pi
@@ -1292,7 +1291,7 @@
  1221   continue        
       enddo
 
-      call prinf('ichtarg=*',ichtarg,20)
+!      call prinf('ichtarg=*',ichtarg,20)
 
       thetstart = 0
       thetend = 2*pi
@@ -1452,13 +1451,14 @@
 
 
 
+
       maxnewt = 10
       thresh = 1.0d-12
 
-!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibatch,itstart,itend,zmin) &
-!$OMP&PRIVATE(zmax,tl0,tr0,il0,ir0,i,zdiff,zavg,nbis,itarg,r,z,tl,tr,tm) &
-!$OMP&PRIVATE(zl,zr,zm,tmp,ibis,t0,idone,inewt,rr,zz,drdt,dzdt,d2rdt2) &
-!$OMP&PRIVATE(d2zdt2,fval,fder)
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibatch,itstart,itend,zmin), &
+!$OMP& PRIVATE(zmax,tl0,tr0,il0,ir0,i,zdiff,zavg,nbis,itarg,r,z,tl,tr,tm), &
+!$OMP& PRIVATE(zl,zr,zm,tmp,ibis,t0,idone,inewt,rr,zz,drdt,dzdt,d2rdt2), &
+!$OMP& PRIVATE(d2zdt2,fval,fder)
       do ibatch=1,nbatch
         itstart = (ibatch-1)*ntpbatch+1
         itend = ibatch*ntpbatch
@@ -1516,7 +1516,7 @@
         zavg = 0.5d0*(zmax+zmin)
 
         nbis = 10 + log(max(zdiff,1e-16)/zavg)/log(2.0d0)
-        nbis = max(nbis,3)
+        nbis = max(nbis,20)
 
 
 
