@@ -143,7 +143,7 @@
 
 
 
-      ntarg = 1000
+      ntarg = 10000
       allocate(targs(3,ntarg),rhs_ex(nd,ntarg),rhs_interp(nd,ntarg))
       do i=1,ntarg
         tval = hkrand(0) 
