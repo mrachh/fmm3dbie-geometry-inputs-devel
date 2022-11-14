@@ -232,7 +232,7 @@
       real *8, allocatable :: uvs_targ(:,:)
       real *8, allocatable :: ucoefs(:,:),pols(:)
 
-      real *8 pi,done
+      real *8 pi,done,alpha,beta
       integer nu,nv
 
       allocate(ipatchtarg(ntarg),uvs_targ(2,ntarg))
@@ -242,6 +242,8 @@
 
       call surf_vals_to_coefs(nd,npatches,norders,ixyzs,iptype,npts,&
         u,ucoefs)
+      npols = (norders(1)+1)*(norders(2)+2)/2  
+      call prin2('ucoefs=*',ucoefs,nd*npols)
 
       nordermax = maxval(norders(1:npatches))
       npmax = (nordermax+1)*(nordermax+2)/2
@@ -249,6 +251,9 @@
 
       incx = 1
       incy = 1
+      alpha = 1.0d0
+      beta = 0.0d0
+
 
 !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,norder,npols,ii,pols)
       do i=1,ntarg
@@ -344,7 +349,6 @@
       hu = 2*pi/(nu+0.0d0)
       hv = 2*pi/(nv+0.0d0)
 
-      print *, "hu,hv=",hu,hv
 
 !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,cv,sv,v,cu,su,u) &
 !$OMP PRIVATE(iu,iv,u0,v0,uuse,vuse)
@@ -358,22 +362,18 @@
         u = atan2(su,cu)
         if(u.lt.0) u = u + 2*pi
 
-        print *, "u=",u
-        print *, "v=",v
+        print *, i,u,v
 
         iu = ceiling(u/hu)
         iv = ceiling(v/hv)
         if(iu.eq.0) iu = 1
         if(iv.eq.0) iv = 1
 
-        print *, iu,iv,nu,nv
-
         u0 = (iu-1)*hu
         v0 = (iv-1)*hv
         uuse = (u-u0)/hu
         vuse = (v-v0)/hv
 
-        print *, uuse,vuse
 
         if(uuse+vuse.le.1) then
           ipatchtarg(i) = (iu-1)*nv*2 + 2*(iv-1) + 1

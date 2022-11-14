@@ -71,7 +71,7 @@
       xyz_in(1) = rin*cos(uu)
       xyz_in(2) = rin*sin(uu)
 
-      xyz_in(1) = rmajor+rminor+0.01d0
+      xyz_in(1) = rmajor+0.01d0
       xyz_in(2) = 0.032d0
       xyz_in(3) = -0.011d0
       
@@ -102,14 +102,13 @@
 
 
 
-      ntarg = 1
+      ntarg = 2
       allocate(targs(3,ntarg),rhs_ex(nd,ntarg),rhs_interp(nd,ntarg))
       do i=1,ntarg
         uu = hkrand(0)*2*pi
         vv = hkrand(0)*2*pi
+        print *, "i,uu,vv=",i,uu,vv
 
-        print *, "uu=",uu
-        print *, "vv=",vv
         targs(1,i) = (rmajor+rminor*cos(vv))*cos(uu) 
         targs(2,i) = (rmajor+rminor*cos(vv))*sin(uu) 
         targs(3,i) = rminor*sin(vv)
@@ -119,8 +118,11 @@
      1     rhs_ex(2,i))
       enddo
 
+
       call torus_interp(nd,rmajor,rminor,rmax,ntarg,targs,npatches,
      1  norders,ixyzs,iptype,npts,rhs,rhs_interp)
+      call prin2('rhs_ex=*',rhs_ex,nd*ntarg)
+      call prin2('rhs_interp=*',rhs_interp,nd*ntarg)
       erra = 0
       do i=1,ntarg
         do idim=1,nd
