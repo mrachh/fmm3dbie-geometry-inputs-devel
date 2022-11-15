@@ -27,13 +27,13 @@
       done = 1
       pi = atan(done)*4
 
-      a = 1.1d0
-      b = 2.3d0
-      c = 1.3d0
+      rmajor = 2.0d0
+      rminor = 0.5d0
+
 
       rmax = 1.0d0
       ifc = 0
-      call get_ellipsoid_mem(a,b,c,rmax,ifc,npatches)
+      call get_torus_mem(rmajor,rminor,rmax,npatches)
       call prinf('npatches=*',npatches,1)
 
 
@@ -45,7 +45,7 @@
       allocate(srcvals(12,npts),srccoefs(9,npts))
       allocate(norders(npatches),ixyzs(npatches+1),iptype(npatches))
 
-      call get_ellipsoid_geom(a,b,c,rmax,ifc,norder,npatches,
+      call get_torus_geom(rmajor,rminor,rmax,norder,npatches,
      1   npts,norders,ixyzs,iptype,srcvals,srccoefs)
       call prinf('npatches=*',npatches,1)
       call prinf('npts=*',npts,1)
@@ -53,27 +53,30 @@
 
       ifinout = 0
 
-      r1 = 1.5d0 + 0.5d0*hkrand(0)
-      r2 = 0.5d0*hkrand(0)
       if(ifinout.eq.1) then
-        rin = r1
-        rout = r2
+        uu = hkrand(0)*2*pi
+        vv = hkrand(0)*2*pi
+        rrout = (rmajor+rminor)*3.0d0 
+        xyz_in(1) = rrout*sin(uu)*cos(vv)
+        xyz_in(2) = rrout*sin(uu)*sin(vv)
+        xyz_in(3) = rrout*cos(uu)
+
+        xyz_out(1) = rmajor+0.01d0
+        xyz_out(2) = 0.032d0
+        xyz_out(3) = -0.011d0
+      
       else
-        rin = r2
-        rout = r1
+        uu = hkrand(0)*2*pi
+        vv = hkrand(0)*2*pi
+        rrout = (rmajor+rminor)*3.0d0 
+        xyz_out(1) = rrout*sin(uu)*cos(vv)
+        xyz_out(2) = rrout*sin(uu)*sin(vv)
+        xyz_out(3) = rrout*cos(uu)
+
+        xyz_in(1) = rmajor+0.01d0
+        xyz_in(2) = 0.032d0
+        xyz_in(3) = -0.011d0
       endif
-
-      thet = hkrand(0)*pi
-      phi = hkrand(0)*2*pi
-      xyz_in(1) = a*rin*sin(thet)*cos(phi)
-      xyz_in(2) = b*rin*sin(thet)*sin(phi)
-      xyz_in(3) = c*rin*cos(thet)
-
-      thet = hkrand(0)*pi
-      phi = hkrand(0)*2*pi
-      xyz_out(1) = a*rout*sin(thet)*cos(phi)
-      xyz_out(2) = b*rout*sin(thet)*sin(phi)
-      xyz_out(3) = c*rout*cos(thet)
 
       dpars(1) = 0.0d0
       dpars(2) = 1.0d0

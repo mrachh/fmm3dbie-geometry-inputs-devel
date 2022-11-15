@@ -35,7 +35,7 @@
       pi = atan(done)*4
 
       rmajor = 2.0d0
-      rminor = 1.0d0
+      rminor = 0.5d0
 
 
       rmax = 1.0d0/2
@@ -53,6 +53,9 @@
      1   npts,norders,ixyzs,iptype,srcvals,srccoefs)
       call prinf('npatches=*',npatches,1)
       call prinf('npts=*',npts,1)
+      
+      call surf_vtk_plot(npatches,norders,ixyzs,iptype,npts,srccoefs,
+     1  srcvals,'torus.vtk','a')
 
       uu = hkrand(0)*2*pi
       vv = hkrand(0)*2*pi
@@ -78,9 +81,6 @@
       allocate(wts(npts))
       call get_qwts(npatches,norders,ixyzs,iptype,npts,srcvals,wts)
       nd = 2
-      call prin2('wts=*',wts,12)
-      ra = sum(wts)
-      call prin2('area of torus=*',ra,1)
 !
 !
 !  Create two test functions due to point source inside and outside
@@ -102,12 +102,11 @@
 
 
 
-      ntarg = 2
+      ntarg = 100
       allocate(targs(3,ntarg),rhs_ex(nd,ntarg),rhs_interp(nd,ntarg))
       do i=1,ntarg
         uu = hkrand(0)*2*pi
         vv = hkrand(0)*2*pi
-        print *, "i,uu,vv=",i,uu,vv
 
         targs(1,i) = (rmajor+rminor*cos(vv))*cos(uu) 
         targs(2,i) = (rmajor+rminor*cos(vv))*sin(uu) 
@@ -121,8 +120,6 @@
 
       call torus_interp(nd,rmajor,rminor,rmax,ntarg,targs,npatches,
      1  norders,ixyzs,iptype,npts,rhs,rhs_interp)
-      call prin2('rhs_ex=*',rhs_ex,nd*ntarg)
-      call prin2('rhs_interp=*',rhs_interp,nd*ntarg)
       erra = 0
       do i=1,ntarg
         do idim=1,nd
@@ -134,10 +131,9 @@
       erra = erra
       call prin2('relative l2 error in interpolated value at targets=*',
      1   erra,1)
-      return
 
       allocate(ipatchtarg(ntarg),uvs_targ(2,ntarg))
-      call ellipsoid_local_coord_targ(a,b,c,rmax,ifc,ntarg,targs,
+      call torus_local_coord_targ(rmajor,rminor,rmax,ntarg,targs,
      1   npatches,norders,ixyzs,iptype,npts,ipatchtarg,uvs_targ)
       
 
@@ -184,32 +180,6 @@ c
       call prin2('relative l2 error in interpolated value at targets=*',
      1   erra,1)
 
-      
-      ntarg = 1000
-      allocate(xyztarg(3,ntarg))
-
-      allocate(itarg(ntarg),ftarg(ntarg))
-
-      xmax = 2*a
-      xmin = -2*a
-      ymax = 2*b
-      ymin = -2*b
-      zmax = 2*c
-      zmin = -2*c
-
-      do i=1,ntarg
-        xyztarg(1,i) = hkrand(0)*(xmax-xmin) + xmin
-        xyztarg(2,i) = hkrand(0)*(ymax-ymin) + ymin
-        xyztarg(3,i) = hkrand(0)*(zmax-zmin) + zmin
-        call check_ellipsoid_interior(a,b,c,xyztarg(1,i),itarg(i))
-        ftarg(i) = itarg(i) + 0.0d0
-      enddo
-
-      call surf_vtk_plot(npatches,norders,ixyzs,iptype,npts,srccoefs,
-     1   srcvals,'ellipsoid.vtk','a')
-      call vtk_scatter_plot_scalar(ntarg,xyztarg,
-     1   ftarg,'ellip_pts.vtk','a')
-      
 
 
       

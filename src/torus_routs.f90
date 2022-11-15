@@ -133,8 +133,8 @@
       call xtri_rectmesh_ani(umin,umax,vmin,vmax,nu,nv,nover,npatches, &
         npatches0,triaskel)
       
-      p1(1) = rmajor
-      p1(2) = rminor
+      p1(1) = rminor
+      p1(2) = rmajor
       p1(3) = 0.0d0
       
       p2(1) = 1.0d0
@@ -243,7 +243,6 @@
       call surf_vals_to_coefs(nd,npatches,norders,ixyzs,iptype,npts,&
         u,ucoefs)
       npols = (norders(1)+1)*(norders(2)+2)/2  
-      call prin2('ucoefs=*',ucoefs,nd*npols)
 
       nordermax = maxval(norders(1:npatches))
       npmax = (nordermax+1)*(nordermax+2)/2
@@ -361,8 +360,6 @@
         su = targs(2,i)
         u = atan2(su,cu)
         if(u.lt.0) u = u + 2*pi
-
-        print *, i,u,v
 
         iu = ceiling(u/hu)
         iv = ceiling(v/hv)
